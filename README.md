@@ -1,10 +1,10 @@
-# Research Handoff
+# Research Handoff · A Codex Skill for Research Writing
 
-**Draft research results with Codex, polish the English with Gemini, and review the diff before editing your manuscript.**
+**Invoke `$research-handoff` in Codex** to draft a Results paragraph from experiment evidence, polish the English with Gemini, and review the diff before editing your manuscript.
 
-[See the worked example](#worked-example) · [Quickstart](#quickstart) · [Use Antigravity without an API key](#antigravity-without-an-api-key) · [中文说明](README.zh-CN.md)
+[View the Codex skill](.agents/skills/research-handoff/SKILL.md) · [Quickstart](#quickstart) · [Worked example](#worked-example) · [Use Antigravity without an API key](#antigravity-without-an-api-key) · [中文说明](README.zh-CN.md)
 
-Research Handoff is a Codex skill and a small Python CLI for researchers writing Results sections. Codex can draft a paragraph from your experiment notes and record where its claims came from. Gemini receives the passage you select, and the script saves a revision and a local diff for you to review.
+The skill can record where the draft's claims came from. Its Python helper sends the selected passage to Gemini and saves the revision and diff locally for author review.
 
 ```text
 Experiment evidence → Codex draft → Gemini polish → Local diff → Author review
@@ -37,6 +37,8 @@ Both revisions made the F1 comparison more concise. In this example, the Codex r
    ```text
    $research-handoff Polish examples/results-polish/draft.md with Gemini and show me the diff.
    ```
+
+To add the skill to another project, copy the [research-handoff skill directory](.agents/skills/research-handoff) into that project's `.agents/skills/` directory, then open the project in Codex.
 
 You can also run the script directly with the Python standard library.
 

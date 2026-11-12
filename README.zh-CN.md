@@ -1,8 +1,8 @@
-# Research Handoff 中文说明
+# Research Handoff · 科研写作 Codex Skill
 
-**用 Codex 根据实验材料写 Results，用 Gemini 润色英文，再用 diff 审阅改动。** [English](README.md)
+**在 Codex 里调用 `$research-handoff`**，就能根据实验材料起草 Results、用 Gemini 润色英文，再通过本地 diff 审阅改动。[查看 Skill 文件](.agents/skills/research-handoff/SKILL.md) · [English](README.md)
 
-这个项目面向正在写英文论文的科研作者。Codex 可以从你指定的结果表或实验记录起草段落，并为关键陈述记录出处。随后，Gemini 润色你指定的段落，脚本在本地保存修改稿和差异，供你决定采纳哪些改动。
+这个 skill 可以为草稿中的关键陈述记录出处。附带的 Python 脚本把你选定的段落交给 Gemini，并在本地保存润色稿和差异，供你决定采纳哪些改动。
 
 [已有 Antigravity？试试免 API 密钥的方式。](#用-antigravity-免-api-密钥)
 
@@ -21,6 +21,8 @@
    ```text
    $research-handoff 用 Gemini 润色 examples/results-polish/draft.md，给我看 diff。
    ```
+
+要在自己的论文项目中使用，请把 [research-handoff skill 文件夹](.agents/skills/research-handoff) 复制到该项目的 `.agents/skills/` 目录，再在 Codex 中打开该项目。
 
 也可以从仓库根目录直接运行脚本。只需 Python 标准库。
 
