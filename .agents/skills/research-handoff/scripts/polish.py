@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Send one research paragraph to Gemini and save the revision and local diff."""
+"""Polish one research paragraph with Gemini and save a local review."""
 
 import argparse
 from collections import Counter
+from contextlib import suppress
 from difflib import unified_diff
 import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, mkdtemp
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -29,12 +32,14 @@ NUMBERS = re.compile(
 )
 
 
-def polish(draft: str, model: str, instructions: str, api_key: str) -> str:
+def build_prompt(draft: str, instructions: str) -> str:
     prompt = PROMPT
     if instructions:
         prompt += f"\n\nAdditional editing instructions:\n{instructions}"
-    prompt += f"\n\nPassage:\n{draft}"
+    return f"{prompt}\n\nPassage:\n{draft}"
 
+
+def polish(prompt: str, model: str, api_key: str) -> str:
     request = Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         data=json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}]}).encode("utf-8"),
@@ -66,6 +71,54 @@ def polish(draft: str, model: str, instructions: str, api_key: str) -> str:
     return revision + "\n"
 
 
+def polish_with_antigravity(prompt: str, model: str | None) -> str:
+    executable = shutil.which("agy")
+    if not executable:
+        raise ValueError("Antigravity CLI (agy) was not found. Install it and sign in, or use --print-prompt and --revision with the desktop app.")
+
+    command = [
+        str(Path(executable).resolve()), "--input-format", "stream-json",
+        "--output-format", "stream-json", "--disable-slash-commands",
+    ]
+    if model:
+        command.append(f"--model={model}")
+    message = {
+        "event": "user",
+        "message": {"content": "Revise this passage using only the text supplied here. Work without tools or file access.\n\n" + prompt},
+    }
+    account_env = {
+        name: value for name, value in os.environ.items()
+        if name.upper() not in {"GEMINI_API_KEY", "GOOGLE_API_KEY"}
+    }
+    # Start outside the manuscript repository and send the passage on stdin.
+    workspace = Path(mkdtemp(prefix="research-handoff-"))
+    try:
+        completed = subprocess.run(
+            command, cwd=workspace, env=account_env, input=json.dumps(message) + "\n",
+            capture_output=True, encoding="utf-8", timeout=180, check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("Antigravity CLI timed out before returning a revision.") from error
+    finally:
+        with suppress(OSError):
+            workspace.rmdir()
+
+    if completed.returncode:
+        raise ValueError(f"Antigravity CLI exited with code {completed.returncode}. Run agy to verify Google account sign-in and agy models to check the model.")
+
+    try:
+        events = [json.loads(line) for line in completed.stdout.splitlines() if line.strip()]
+    except json.JSONDecodeError as error:
+        raise ValueError("Antigravity CLI returned unreadable JSON. Update agy to a version that supports stream-json.") from error
+    results = [event["result"] for event in events if event.get("event") == "result"]
+    if len(results) != 1 or results[0].get("status") != "SUCCESS":
+        raise ValueError("Antigravity CLI did not return a successful revision.")
+    revision = results[0].get("response", "").strip()
+    if not revision:
+        raise ValueError("Antigravity CLI returned an empty revision.")
+    return revision + "\n"
+
+
 def save_review(output_dir: Path, draft_name: str, draft: str, revision: str) -> None:
     changes = "".join(unified_diff(
         draft.splitlines(keepends=True), revision.splitlines(keepends=True),
@@ -82,28 +135,45 @@ def save_review(output_dir: Path, draft_name: str, draft: str, revision: str) ->
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("draft", type=Path, help="UTF-8 file containing the passage to send")
-    parser.add_argument("--output-dir", type=Path, required=True, help="New directory for the revision and diff")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Gemini model ID (default: {DEFAULT_MODEL})")
+    parser.add_argument("draft", type=Path, help="UTF-8 file containing the original passage")
+    parser.add_argument("--output-dir", type=Path, help="New directory for the revision and diff")
+    parser.add_argument("--model", help=f"Override the model (API default: {DEFAULT_MODEL}; Antigravity default: your CLI selection)")
     parser.add_argument("--instructions", default="", help="Extra editing instructions sent with the draft")
     parser.add_argument("--protect", action="append", default=[], help="Exact string to check locally (repeatable)")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--antigravity", action="store_true", help="Polish through the signed-in Antigravity CLI")
+    mode.add_argument("--print-prompt", action="store_true", help="Print a prompt for the Antigravity desktop app")
+    mode.add_argument("--revision", type=Path, help="Review a saved revision locally without a model call")
     args = parser.parse_args()
+    if not args.print_prompt and args.output_dir is None:
+        parser.error("--output-dir is required when saving a review")
 
     try:
-        api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-        if not api_key:
-            raise ValueError("Set GEMINI_API_KEY in your environment.")
-        if not re.fullmatch(r"[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*", args.model):
-            raise ValueError("Provide a Gemini model ID such as gemini-3.1-flash-lite.")
-        if args.output_dir.exists() or args.output_dir.is_symlink():
-            raise ValueError(f"Choose a new output directory. Already exists: {args.output_dir}")
+        if args.model and not re.fullmatch(r"[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*", args.model):
+            raise ValueError("Provide a model ID, for example gemini-3.1-flash-lite for the Gemini API.")
         draft = args.draft.read_text(encoding="utf-8-sig")
         if not draft.strip():
             raise ValueError("The draft is empty.")
         if not draft.endswith("\n"):
             draft += "\n"
+        if args.print_prompt:
+            print(build_prompt(draft, args.instructions), end="")
+            return 0
+        if args.output_dir.exists() or args.output_dir.is_symlink():
+            raise ValueError(f"Choose a new output directory. Already exists: {args.output_dir}")
 
-        revision = polish(draft, args.model, args.instructions, api_key)
+        if args.revision:
+            revision = args.revision.read_text(encoding="utf-8-sig").strip()
+            if not revision:
+                raise ValueError("The saved revision is empty.")
+            revision += "\n"
+        elif args.antigravity:
+            revision = polish_with_antigravity(build_prompt(draft, args.instructions), args.model)
+        else:
+            api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+            if not api_key:
+                raise ValueError("Set GEMINI_API_KEY in your environment.")
+            revision = polish(build_prompt(draft, args.instructions), args.model or DEFAULT_MODEL, api_key)
         save_review(args.output_dir, args.draft.name, draft, revision)
     except (ValueError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)

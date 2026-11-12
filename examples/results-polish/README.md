@@ -30,4 +30,10 @@
 
 1. 用 Codex 读取 [结果表和实验条件](results.md)，写一段英文 Results，并为关键陈述记录出处。参见 [Codex 初稿](draft.md) 和 [证据对应表](evidence.md)。
 2. 在 Antigravity 新建无项目对话，选择 Gemini，粘贴 [完整润色指令](gemini-prompt.md)。这份指令已经包含英文初稿。
-3. 保存这次的原语言回复，例如 `my-polished.md`。如果界面开启了自动翻译，可以关闭后复核原文。在本示例目录运行 `git diff --no-index --word-diff=plain -- draft.md my-polished.md` 查看词级差异。核对方法与结果的对应关系、实验条件和结论范围，再选择要采纳的修改。
+3. 保存这次的原语言回复，例如 `my-polished.md`。如果界面开启了自动翻译，可以关闭后复核原文。用 [免 API 密钥的桌面版步骤](../../README.zh-CN.md#用-antigravity-免-api-密钥) 生成本地 diff，再核对方法与结果的对应关系、实验条件和结论范围。
+
+也可以直接用仓库中保存的实际 Antigravity 回复试跑本地审阅。从仓库根目录运行下面的命令。
+
+```sh
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --revision examples/results-polish/polished.md --output-dir .research-handoff/desktop-demo
+```

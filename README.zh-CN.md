@@ -4,6 +4,8 @@
 
 这个项目面向正在写英文论文的科研作者。Codex 可以从你指定的结果表或实验记录起草段落，并为关键陈述记录出处。随后，Gemini 润色你指定的段落，脚本在本地保存修改稿和差异，供你决定采纳哪些改动。
 
+[已有 Antigravity？试试免 API 密钥的方式。](#用-antigravity-免-api-密钥)
+
 ## 快速开始
 
 1. 克隆仓库并进入目录。
@@ -27,6 +29,21 @@ python .agents/skills/research-handoff/scripts/polish.py examples/results-polish
 ```
 
 脚本把草稿段落和编辑指令发给 Gemini，并在新目录里生成 `polished.md` 和 `review.diff`。原始实验材料和证据记录留在本地。每次运行请选一个新的输出目录。
+
+## 用 Antigravity 免 API 密钥
+
+**自动交接。** 安装官方 Antigravity CLI（`agy`），在终端运行一次 `agy`，用 Google 账号登录，并选择 Gemini 模型。之后可以在 Codex 里说「`$research-handoff` 用 Antigravity CLI 润色这个段落」，也可以直接运行下方命令。[CLI 安装指南](https://antigravity.google/docs/cli/tutorial) · [账号登录说明](https://antigravity.google/docs/install?tab=cli)
+
+```sh
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --antigravity --output-dir .research-handoff/antigravity
+```
+
+**只有桌面版。** 用第一条命令生成提示词，粘贴到 Antigravity 的无项目 Gemini 对话里，把原始英文回复保存为 `reply.md`。第二条命令在本地生成润色稿副本和 diff。
+
+```sh
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --print-prompt
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --revision reply.md --output-dir .research-handoff/desktop
+```
 
 ## 为什么保留 diff
 

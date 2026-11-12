@@ -2,7 +2,7 @@
 
 **Draft research results with Codex, polish the English with Gemini, and review the diff before editing your manuscript.**
 
-[See the worked example](#worked-example) · [Try it in Codex](#quickstart) · [中文说明](README.zh-CN.md)
+[See the worked example](#worked-example) · [Quickstart](#quickstart) · [Use Antigravity without an API key](#antigravity-without-an-api-key) · [中文说明](README.zh-CN.md)
 
 Research Handoff is a Codex skill and a small Python CLI for researchers writing Results sections. Codex can draft a paragraph from your experiment notes and record where its claims came from. Gemini receives the passage you select, and the script saves a revision and a local diff for you to review.
 
@@ -47,6 +47,21 @@ python .agents/skills/research-handoff/scripts/polish.py examples/results-polish
 Open `polished.md` and `review.diff` in the new output directory. Choose a fresh directory for each run. The script sends the passage and editing instructions to the Gemini API. The experiment sources and the generated diff stay on your machine.
 
 Use `--protect "23.1 ms"` or `--protect "Mean Pooling"` to flag changes in the occurrence count of exact text. The script also checks for added or removed numeric tokens. Review the method-to-value mapping, experimental conditions, and wording of the conclusions before applying edits. Use `--model` to select a model. The default is `gemini-3.1-flash-lite`.
+
+## Antigravity without an API key
+
+**Automatic handoff.** Install the official `agy` CLI and run `agy` once to sign in with your Google account. Select a Gemini model in the CLI. Then ask Codex to use `$research-handoff` with Antigravity, or run the command below. The script uses your CLI session and writes the same review files. [CLI installation](https://antigravity.google/docs/cli/tutorial) · [Account sign-in](https://antigravity.google/docs/install?tab=cli)
+
+```sh
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --antigravity --output-dir .research-handoff/antigravity
+```
+
+**Desktop app.** Use `--print-prompt` to generate the prompt for a new Antigravity conversation outside a project. Copy the original reply to `reply.md`, then generate the diff locally. [Worked Antigravity example (中文)](examples/results-polish/README.md)
+
+```sh
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --print-prompt
+python .agents/skills/research-handoff/scripts/polish.py examples/results-polish/draft.md --revision reply.md --output-dir .research-handoff/desktop
+```
 
 ## Feedback
 
